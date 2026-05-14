@@ -1,0 +1,31 @@
+# Local
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Runtime
+temp/
+logs/
+
+# Instagram / yt-dlp cookies (never commit)
+secrets/*
+!secrets/.gitkeep
+
+# На VPS: положите instagram_cookies.txt в data/ (не коммитить)
+data/*
+!data/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store

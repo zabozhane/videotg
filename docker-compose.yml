@@ -1,0 +1,31 @@
+services:
+  bot:
+    build: .
+    image: videobot:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Внутри контейнера фиксируем порт healthcheck (хост пробрасывается отдельно)
+      HEALTH_HOST: "0.0.0.0"
+      HEALTH_PORT: "8080"
+    ports:
+      - "${PUBLIC_HEALTH_PORT:-8080}:8080"
+    volumes:
+      - ./logs:/app/logs
+      - bot_temp:/app/temp
+      # Instagram на VPS: положите cookies на сервер в ./data/instagram_cookies.txt и раскомментируйте:
+      # - ./data/instagram_cookies.txt:/run/instagram_cookies.txt:ro
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5)
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 120s
+
+volumes:
+  bot_temp:

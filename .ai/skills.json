@@ -1,0 +1,72 @@
+{
+  "selected_skills": [
+    {
+      "id": "telegram_bot",
+      "title": "Telegram Bot",
+      "summary": "Reusable engineering context pack with: architecture, pitfalls, rules.",
+      "prompts": [],
+      "rules": [
+        "Keep bot handlers idempotent and safe for retries.",
+        "Validate incoming update payloads before processing.",
+        "Separate transport concerns (Telegram API) from domain logic.",
+        "Log failed Telegram API calls with request context."
+      ],
+      "conventions": [],
+      "architecture_guidance": [
+        "Use a thin Telegram adapter layer for polling/webhook updates.",
+        "Route parsed updates into explicit application use-cases.",
+        "Keep command handlers small and side-effect aware."
+      ],
+      "pitfalls": [
+        "Mixing long-running work directly in update handlers blocks responsiveness.",
+        "Ignoring rate limits can get bot requests throttled.",
+        "Relying on mutable in-memory session state breaks after restarts."
+      ],
+      "source_files": [
+        "architecture",
+        "pitfalls",
+        "rules"
+      ],
+      "source": "local_pack",
+      "confidence": "high",
+      "match_reason": "Matched by local skill keyword rules."
+    },
+    {
+      "id": "python_async",
+      "title": "Python Async",
+      "summary": "Reusable engineering context pack with: pitfalls, rules.",
+      "prompts": [],
+      "rules": [
+        "Never block the event loop with sync I/O in coroutine paths.",
+        "Bound concurrency with semaphores or worker pools.",
+        "Propagate cancellation and timeouts intentionally.",
+        "Use structured retries with jitter for flaky network calls."
+      ],
+      "conventions": [],
+      "architecture_guidance": [],
+      "pitfalls": [
+        "Fire-and-forget tasks can hide exceptions and leak resources.",
+        "Shared mutable state across coroutines causes race conditions.",
+        "Unbounded gather() calls can overload external services."
+      ],
+      "source_files": [
+        "pitfalls",
+        "rules"
+      ],
+      "source": "local_pack",
+      "confidence": "high",
+      "match_reason": "Matched by local skill keyword rules."
+    }
+  ],
+  "selection_rationale": [
+    "Selected telegram_bot because the spec mentions bot/telegram workflows.",
+    "Selected python_async to enforce reliable async patterns in Python services."
+  ],
+  "mcp_recommendations": [
+    "Telegram Bot API docs/search MCP for quick endpoint lookup.",
+    "HTTP inspection tools (e.g. curl/httpie workflows) to debug webhook/polling flows.",
+    "Python docs MCP (asyncio section) for event-loop and coroutine references.",
+    "Package index/search MCP to compare async-ready libraries before adoption.",
+    "Ruff + pytest tooling context for fast local feedback loops."
+  ]
+}

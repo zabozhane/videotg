@@ -1,0 +1,40 @@
+{
+  "project_name": "Async Telegram Video Publisher Bot",
+  "idea": "A production-ready Telegram bot in Python that asynchronously downloads videos from Instagram Reels/Posts, YouTube Shorts/Videos, and Reddit videos upon user URL input, then publishes them to a specified Telegram channel with proper validation, retry, file cleanup, and error handling.",
+  "preferred_stack": "Python 3.12+, aiogram 3.x, yt-dlp, aiohttp, asyncio, python-dotenv, ffmpeg, Docker + docker-compose",
+  "constraints": [
+    "Use asynchronous code with asyncio and aiohttp",
+    "Store secrets only in .env or environment variables (no hardcoding)",
+    "Implement retry logic on download failures",
+    "Limit downloaded video size (configurable)",
+    "Use tempfile for temporary storage and ensure cleanup on success and errors",
+    "Log all key events and errors using logging module",
+    "Validate incoming URLs before processing",
+    "Support concurrent processing of multiple links",
+    "Provide graceful error handling and user feedback in bot",
+    "Use pydantic-settings or dotenv for configuration loading"
+  ],
+  "goals": [
+    "Design project folder structure as specified with clean separation of concerns",
+    "Implement configuration loading with pydantic-settings respecting .env and environment variables",
+    "Implement BaseDownloader abstraction and concrete InstagramDownloader, YouTubeDownloader, RedditDownloader using yt-dlp asynchronously with retry and timeout",
+    "Implement Telegram bot using aiogram 3.x with commands /start, /help, /status and URL input handling validating URLs then processing concurrently",
+    "Use tempfile module to store downloads in temp/, ensure cleanup on success or exception with safeguards",
+    "Constrain video size based on config MAX_VIDEO_SIZE_MB before publishing",
+    "Publish downloaded videos to specified Telegram channel asynchronously",
+    "Log all major actions and errors with Python logging configured for structured logs and logs volume",
+    "Containerize app with Docker and docker-compose including ffmpeg and volume for logs",
+    "Include README with setup, usage, configuration, docker instructions, troubleshooting",
+    "Implement graceful shutdown and healthcheck endpoint",
+    "Add typing, data models with pydantic, lint recommendations, and .gitignore"
+  ],
+  "non_goals": [
+    "Supporting TikTok/Twitter downloading (planned for future, not included now)",
+    "Implementing complex pipeline frameworks or external databases",
+    "Embedding keys or secrets directly in codebase",
+    "Storing videos persistently beyond temporary lifetime",
+    "Creating GUI or web interface besides the Telegram bot",
+    "Using agents, event buses, vector DBs, or RAG methods",
+    "Overengineering or adding features beyond video download, post, and cleanup pipeline"
+  ]
+}
