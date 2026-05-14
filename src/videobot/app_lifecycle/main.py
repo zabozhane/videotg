@@ -6,6 +6,7 @@ import signal
 from typing import Any
 
 from aiogram import Bot, Dispatcher
+from aiogram.client.session.aiohttp import AiohttpSession
 
 from videobot.app_lifecycle.health import run_health_server, stop_health_server
 from videobot.config.settings import get_settings
@@ -20,7 +21,10 @@ async def run_app() -> None:
     setup_logging(settings)
     settings.temp_dir.mkdir(parents=True, exist_ok=True)
 
-    bot = Bot(token=settings.bot_token)
+    bot = Bot(
+        token=settings.bot_token,
+        session=AiohttpSession(timeout=float(settings.telegram_api_session_timeout_seconds)),
+    )
     dp = Dispatcher()
     sem = asyncio.Semaphore(settings.max_concurrent_downloads)
     dp.include_router(build_router(settings, sem))

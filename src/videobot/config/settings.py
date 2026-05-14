@@ -191,6 +191,14 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("TELEGRAM_SEND_VIDEO_TIMEOUT_SECONDS"),
     )
 
+    #: Таймаут aiohttp-сессии Bot (сек). Слишком мало → getUpdates long poll даёт Request timeout.
+    telegram_api_session_timeout_seconds: float = Field(
+        default=180.0,
+        ge=60.0,
+        le=600.0,
+        validation_alias=AliasChoices("TELEGRAM_API_SESSION_TIMEOUT_SECONDS"),
+    )
+
     @field_validator("temp_dir", "log_dir", mode="before")
     @classmethod
     def coerce_path(cls, v: str | Path) -> Path:

@@ -23,11 +23,11 @@ services:
         - CMD
         - python
         - -c
-        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5)
-      interval: 30s
-      timeout: 15s
-      retries: 3
-      start_period: 120s
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=12)
+      interval: 45s
+      timeout: 35s
+      retries: 5
+      start_period: 180s
 
   # Firefox с веб-интерфейсом: один раз залогиниться в Instagram на VPS.
   # Запуск: docker compose --profile ig-login up -d
