@@ -1,8 +1,100 @@
+import logging
+import os
+import re
+import sys
 from functools import lru_cache
 from pathlib import Path
+from typing import Self
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+# Первый токен из YTDLP_COOKIES_FROM_BROWSER (как у yt-dlp): chrome, chrome:Profile, chrome+keyring, …
+_BROWSER_HEAD = re.compile(r"^([^:+]+)")
+
+# Под ~/.config/… профили с SQLite Cookies (Chrome-семейство на Linux).
+_BROWSER_CONFIG_DIRS: dict[str, tuple[str, ...]] = {
+    "chrome": ("google-chrome",),
+    "chromium": ("chromium",),
+    "brave": ("BraveSoftware/Brave-Browser",),
+    "edge": ("microsoft-edge",),
+    "opera": ("opera", "com.opera.Opera"),
+    "vivaldi": ("vivaldi",),
+}
+
+# Windows: %LOCALAPPDATA%\…\User Data (или аналог) — профили с Cookies.
+_BROWSER_WIN_USERDATA: dict[str, tuple[str, ...]] = {
+    "chrome": ("Google/Chrome/User Data",),
+    "chromium": ("Chromium/User Data",),
+    "brave": ("BraveSoftware/Brave-Browser/User Data",),
+    "edge": ("Microsoft/Edge/User Data",),
+    "vivaldi": ("Vivaldi/User Data",),
+}
+    "chrome": ("Google/Chrome",),
+    "chromium": ("Chromium",),
+    "brave": ("BraveSoftware/Brave-Browser",),
+    "edge": ("Microsoft Edge",),
+    "opera": ("com.operasoftware.Opera",),
+    "vivaldi": ("Vivaldi",),
+}
+
+
+def _ytdlp_browser_head(spec: str) -> str | None:
+    spec = spec.strip()
+    if not spec:
+        return None
+    m = _BROWSER_HEAD.match(spec)
+    return m.group(1).strip().lower() if m else None
+
+
+def _browser_cookie_database_likely_present(browser_head: str) -> bool:
+    """False на VPS/Docker без профиля браузера — тогда не передаём cookiesfrombrowser в yt-dlp."""
+    home = Path.home()
+    name = browser_head.lower()
+    if name == "firefox":
+        if sys.platform == "darwin":
+            profiles = home / "Library" / "Application Support" / "Firefox" / "Profiles"
+            if profiles.is_dir():
+                return any(profiles.glob("**/cookies.sqlite"))
+            return False
+        mozilla = home / ".mozilla" / "firefox"
+        if not mozilla.is_dir():
+            return False
+        return any(mozilla.glob("**/cookies.sqlite"))
+    if name == "safari":
+        safari = home / "Library" / "Cookies" / "Cookies.binarycookies"
+        return safari.is_file()
+    rels = _BROWSER_CONFIG_DIRS.get(name)
+    if rels is None:
+        return True
+    if sys.platform == "darwin":
+        app_support = home / "Library" / "Application Support"
+        for rel in _BROWSER_APP_SUPPORT_DIRS.get(name, ()):
+            base = app_support / Path(rel)
+            if base.is_dir() and any(base.glob("**/Cookies")):
+                return True
+        return False
+    if sys.platform == "win32":
+        local = os.environ.get("LOCALAPPDATA")
+        if not local:
+            return False
+        root = Path(local)
+        for rel in _BROWSER_WIN_USERDATA.get(name, ()):
+            base = root / Path(rel)
+            if base.is_dir() and any(base.glob("**/Cookies")):
+                return True
+        return False
+    if not sys.platform.startswith("linux"):
+        return True
+    for rel in rels:
+        base = home / ".config" / Path(rel)
+        if not base.is_dir():
+            continue
+        if any(base.glob("**/Cookies")):
+            return True
+    return False
 
 
 class Settings(BaseSettings):
@@ -71,6 +163,24 @@ class Settings(BaseSettings):
             return None
         s = str(v).strip()
         return s or None
+
+    @model_validator(mode="after")
+    def skip_browser_cookies_without_local_db(self) -> Self:
+        spec = self.ytdlp_cookies_from_browser
+        if not spec:
+            return self
+        head = _ytdlp_browser_head(spec)
+        if head is None:
+            return self
+        if _browser_cookie_database_likely_present(head):
+            return self
+        logger.info(
+            "YTDLP_COOKIES_FROM_BROWSER=%r: локальная БД cookies не найдена — "
+            "отключаем (типично для VPS). Для Instagram задайте YTDLP_COOKIEFILE.",
+            spec,
+        )
+        self.ytdlp_cookies_from_browser = None
+        return self
 
 
 @lru_cache
