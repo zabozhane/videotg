@@ -54,7 +54,7 @@ docker compose up --build -d
 2. Скопируйте проект: `git clone …` или `scp -r` каталога на VPS.
 3. На сервере: `cd insta_download && cp .env.example .env` — пропишите **`BOT_TOKEN`**, **`TELEGRAM_CHANNEL_ID`**. Для Instagram: либо **`YTDLP_COOKIEFILE`** и файл `data/instagram_cookies.txt` (volume в `docker-compose` раскомментируйте при необходимости), либо вход через Firefox на VPS (**раздел «Instagram и VPS»** и `YTDLP_COOKIES_FROM_BROWSER=firefox:/igfirefox/...`).
 4. Запуск: `docker compose up --build -d`. Логи: `docker compose logs -f bot` или `./logs/app.log`.
-5. **Деплой с Mac:** `bash deploy/deploy.sh` — rsync **не перезаписывает** `.env` на VPS (только код); токен и `YTDLP_*` на сервере правьте там или через `deploy/apply_vps_instagram_firefox_env.sh`.
+5. **Деплой с Mac:** `bash deploy/deploy.sh` — rsync **не перезаписывает** `.env` на VPS и **не удаляет** `data/firefox-ig/` (профиль Firefox для Instagram); остальное — как раньше.
 6. **Файрвол:** при необходимости откройте только `PUBLIC_HEALTH_PORT` (если health смотрит наружу); для Telegram исходящий HTTPS достаточно по умолчанию.
 7. Обновление: `git pull && docker compose up --build -d`.
 

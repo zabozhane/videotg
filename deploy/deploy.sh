@@ -53,6 +53,7 @@ RSYNC_E="${RSYNC_SSH[*]}"
 echo "==> Rsync в $REMOTE (без .venv, кэшей и .env — на VPS не перезаписываем серверный .env)"
 rsync -az --delete \
   --exclude '.env' \
+  --filter='protect data/firefox-ig/**' \
   --exclude '.venv' \
   --exclude 'venv' \
   --exclude '__pycache__' \

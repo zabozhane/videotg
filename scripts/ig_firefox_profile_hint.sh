@@ -3,23 +3,23 @@
 # Запуск на VPS из каталога проекта: sh scripts/ig_firefox_profile_hint.sh
 
 set -e
-BASE="${1:-./data/firefox-ig/.mozilla/firefox}"
+ROOT="${1:-./data/firefox-ig}"
 
-if [ ! -d "$BASE" ]; then
-  echo "Каталога ещё нет: $BASE"
-  echo "Запустите Firefox на сервере: docker compose --profile ig-login up -d"
-  echo "Откройте UI (см. README), дождитесь первого запуска браузера, затем снова этот скрипт."
+if [ ! -d "$ROOT" ]; then
+  echo "Нет каталога: $ROOT"
+  echo "Запустите: docker compose --profile ig-login up -d"
   exit 1
 fi
 
-echo "Папки профилей:"
-ls -1 "$BASE" 2>/dev/null || true
-echo ""
-guess="$(ls -1 "$BASE" 2>/dev/null | grep -E '\.(default|default-release)' | head -1 || true)"
-if [ -n "$guess" ]; then
-  echo "Добавьте в .env на VPS (в контейнере бота путь к профилю — /igfirefox/...):"
-  echo "YTDLP_COOKIES_FROM_BROWSER=firefox:/igfirefox/.mozilla/firefox/${guess}"
-else
-  echo "Подставьте имя одной из папок выше:"
-  echo "YTDLP_COOKIES_FROM_BROWSER=firefox:/igfirefox/.mozilla/firefox/<имя_папки>"
+cookie="$(find "$ROOT" -name cookies.sqlite 2>/dev/null | head -1 || true)"
+if [ -z "$cookie" ]; then
+  echo "Не найден cookies.sqlite в $ROOT — откройте ig-firefox, зайдите на instagram.com"
+  exit 1
 fi
+
+prof="$(dirname "$cookie")"
+rel="${prof#${ROOT}/}"
+echo "Профиль (на хосте): $prof"
+echo ""
+echo "Добавьте в .env на VPS (в контейнере бота том смонтирован как /igfirefox):"
+echo "YTDLP_COOKIES_FROM_BROWSER=firefox:/igfirefox/${rel}"
