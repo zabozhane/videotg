@@ -19,12 +19,15 @@ async def publish_video_to_channel(bot: Bot, settings: Settings, video_path: Pat
     if size > max_bytes:
         raise ValueError(f"Видео {size} B больше лимита {max_bytes} B")
 
+    timeout_s = int(max(60, min(settings.telegram_send_video_timeout_seconds, 7200)))
+
     last: BaseException | None = None
     for attempt in range(1, settings.upload_retries + 1):
         try:
             await bot.send_video(
                 chat_id=settings.telegram_channel_id,
                 video=FSInputFile(video_path),
+                request_timeout=timeout_s,
             )
             logger.info("Published %s to channel (attempt %s)", video_path.name, attempt)
             return

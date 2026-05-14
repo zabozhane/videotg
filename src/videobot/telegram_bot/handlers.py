@@ -21,10 +21,10 @@ logger = logging.getLogger(__name__)
 
 
 async def _upload_video_heartbeat(bot: Bot, chat_id: int, stop: asyncio.Event) -> None:
-    """Telegram chat actions expire ~5s; refresh so the user sees the bot is still working."""
+    """Действия в чате сбрасываются ~5 с; TYPING — нейтрально на скачивании и ffmpeg."""
     while not stop.is_set():
         try:
-            await bot.send_chat_action(chat_id, ChatAction.UPLOAD_VIDEO)
+            await bot.send_chat_action(chat_id, ChatAction.TYPING)
         except Exception:
             logger.debug("send_chat_action failed", exc_info=True)
         try:
@@ -128,6 +128,11 @@ async def _run_pipeline(
             except DownloadFailed as exc:
                 await message.answer(str(exc))
                 return
+
+            await message.answer(
+                "Скачивание завершено. Идёт подготовка и отправка в канал "
+                "(перекодирование и загрузка в Telegram могут занять несколько минут на VPS).",
+            )
 
             if settings.telegram_reencode_mp4:
                 path = await asyncio.to_thread(

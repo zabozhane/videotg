@@ -183,6 +183,14 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("TELEGRAM_REENCODE_MP4"),
     )
 
+    #: Таймаут одного HTTP-запроса sendVideo (сек). По умолчанию в aiogram ~60 с — мало для VPS.
+    telegram_send_video_timeout_seconds: float = Field(
+        default=3600.0,
+        ge=60.0,
+        le=7200.0,
+        validation_alias=AliasChoices("TELEGRAM_SEND_VIDEO_TIMEOUT_SECONDS"),
+    )
+
     @field_validator("temp_dir", "log_dir", mode="before")
     @classmethod
     def coerce_path(cls, v: str | Path) -> Path:
