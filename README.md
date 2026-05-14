@@ -54,8 +54,9 @@ docker compose up --build -d
 2. Скопируйте проект: `git clone …` или `scp -r` каталога на VPS.
 3. На сервере: `cd insta_download && cp .env.example .env` — пропишите **`BOT_TOKEN`**, **`TELEGRAM_CHANNEL_ID`**. Для Instagram: либо **`YTDLP_COOKIEFILE`** и файл `data/instagram_cookies.txt` (volume в `docker-compose` раскомментируйте при необходимости), либо вход через Firefox на VPS (**раздел «Instagram и VPS»** и `YTDLP_COOKIES_FROM_BROWSER=firefox:/igfirefox/...`).
 4. Запуск: `docker compose up --build -d`. Логи: `docker compose logs -f bot` или `./logs/app.log`.
-5. **Файрвол:** при необходимости откройте только `PUBLIC_HEALTH_PORT` (если health смотрит наружу); для Telegram исходящий HTTPS достаточно по умолчанию.
-6. Обновление: `git pull && docker compose up --build -d`.
+5. **Деплой с Mac:** `bash deploy/deploy.sh` — rsync **не перезаписывает** `.env` на VPS (только код); токен и `YTDLP_*` на сервере правьте там или через `deploy/apply_vps_instagram_firefox_env.sh`.
+6. **Файрвол:** при необходимости откройте только `PUBLIC_HEALTH_PORT` (если health смотрит наружу); для Telegram исходящий HTTPS достаточно по умолчанию.
+7. Обновление: `git pull && docker compose up --build -d`.
 
 Переменные **`VPS_*`** (хост, пользователь, порт, ключ или пароль) см. в **`.env.example`**: они **не используются** приложением `videobot`, только вашими будущими скриптами деплоя; пароль в `.env` хранить нежелательно — предпочтительнее **`VPS_SSH_KEY_PATH`**.
 
@@ -70,11 +71,10 @@ docker compose up --build -d
    `ssh -L 3100:127.0.0.1:3100 user@ваш-vps`  
    затем в локальном браузере откройте `http://localhost:3100` — появится Firefox на VPS.
 3. В этом Firefox зайдите на [instagram.com](https://www.instagram.com) и войдите в аккаунт (2FA — как обычно в браузере).
-4. На VPS выполните `sh scripts/ig_firefox_profile_hint.sh` — скрипт подскажет строку для `.env`.
-5. В **`.env` на VPS** добавьте (или поправьте) строку вида  
-   `YTDLP_COOKIES_FROM_BROWSER=firefox:/igfirefox/.mozilla/firefox/…`  
-   затем `docker compose up -d` (бот уже монтирует `./data/firefox-ig` в `/igfirefox` только для чтения).
-6. Сервис браузера можно остановить, когда вход не нужен: `docker compose --profile ig-login stop ig-firefox` — профиль остаётся в `./data/firefox-ig`.
+4. На **Mac** (из корня репозитория, с рабочим SSH в `.env`):  
+   `bash deploy/apply_vps_instagram_firefox_env.sh` — на VPS в `.env` запишется `YTDLP_COOKIES_FROM_BROWSER=firefox:/igfirefox/...` и перезапустится контейнер `bot`.  
+   Либо вручную на VPS: `sh scripts/ig_firefox_profile_hint.sh` и вставьте строку в `.env`, затем `docker compose up -d bot`.
+5. Сервис браузера можно остановить: `docker compose --profile ig-login stop ig-firefox` — профиль остаётся в `./data/firefox-ig`.
 
 Учитывайте правила Instagram и риски хранения сессии на сервере; не пробрасывайте порт Firefox на `0.0.0.0` без VPN и сильной необходимости.
 

@@ -50,8 +50,9 @@ fi
 REMOTE="${VPS_USER}@${VPS_HOST}:~/${VPS_REMOTE_DIR}/"
 RSYNC_E="${RSYNC_SSH[*]}"
 
-echo "==> Rsync в $REMOTE (без .venv и кэшей)"
+echo "==> Rsync в $REMOTE (без .venv, кэшей и .env — на VPS не перезаписываем серверный .env)"
 rsync -az --delete \
+  --exclude '.env' \
   --exclude '.venv' \
   --exclude 'venv' \
   --exclude '__pycache__' \
