@@ -65,6 +65,61 @@ def _copy_firefox_cookies_db_to_temp_dir(
     return tmp
 
 
+def _try_instagram_cookiefile_from_browser(
+    browser_spec: str,
+    out_dir: Path,
+    stem: str,
+    opts: dict[str, Any],
+    cleanup_paths: list[Path],
+) -> bool:
+    """Instagram в yt-dlp проверяет sessionid; Netscape cookiefile стабильнее cookiesfrombrowser."""
+    from yt_dlp.cookies import YDLLogger, extract_cookies_from_browser
+
+    spec = browser_spec.strip()
+    try:
+        prof = _firefox_profile_dir_from_spec(spec)
+        if prof is not None:
+            tmp = _copy_firefox_cookies_db_to_temp_dir(prof, out_dir, stem)
+            if tmp is not None:
+                cleanup_paths.append(tmp)
+                spec = f"firefox:{tmp.resolve()}"
+        tup = _parse_cookies_from_browser(spec)
+        jar = extract_cookies_from_browser(
+            tup[0], tup[1], YDLLogger(), keyring=tup[2], container=tup[3]
+        )
+    except Exception as exc:
+        logger.warning("Instagram: не удалось прочитать cookies браузера: %s", exc)
+        return False
+
+    out = out_dir / f"{stem}_ig_cookies.txt"
+    try:
+        jar.save(str(out), ignore_discard=True, ignore_expires=True)
+    except OSError as exc:
+        logger.warning("Instagram: сохранение cookies.txt: %s", exc)
+        return False
+    if not out.is_file() or out.stat().st_size == 0:
+        logger.warning("Instagram: пустой файл cookies после экспорта")
+        return False
+
+    opts["cookiefile"] = str(out.resolve())
+    cleanup_paths.append(out)
+    jar_cookies = list(jar)
+    insta = [c for c in jar_cookies if "instagram" in (c.domain or "").lower()]
+    has_session = any(c.name == "sessionid" for c in insta)
+    logger.info(
+        "Instagram: cookies → %s (всего %d, instagram-домен %d, sessionid=%s)",
+        out,
+        len(jar_cookies),
+        len(insta),
+        has_session,
+    )
+    if not has_session:
+        logger.warning(
+            "Instagram: нет sessionid для instagram — войдите в instagram.com в Firefox на VPS",
+        )
+    return True
+
+
 def _parse_cookies_from_browser(spec: str) -> tuple[str, str | None, str | None, str | None]:
     """Match yt-dlp CLI parsing for --cookies-from-browser (see yt_dlp/__init__.py)."""
     import re
@@ -208,42 +263,53 @@ class BaseDownloader(ABC):
             "ignoreerrors": False,
         }
 
-        isolated_ff_profile: Path | None = None
+        cleanup_paths: list[Path] = []
         browser_spec = self._settings.ytdlp_cookies_from_browser
-        if browser_spec:
+        cf = self._settings.ytdlp_cookiefile
+
+        if browser_spec and _instagram_url(url):
+            if not _try_instagram_cookiefile_from_browser(
+                browser_spec, out_dir, stem, opts, cleanup_paths
+            ):
+                if cf is not None and cf.is_file():
+                    opts["cookiefile"] = str(cf.resolve())
+                try:
+                    spec_for_ytdlp = browser_spec
+                    prof = _firefox_profile_dir_from_spec(browser_spec)
+                    if prof is not None and (
+                        tmp := _copy_firefox_cookies_db_to_temp_dir(prof, out_dir, stem)
+                    ) is not None:
+                        cleanup_paths.append(tmp)
+                        spec_for_ytdlp = f"firefox:{tmp.resolve()}"
+                        logger.info(
+                            "Instagram: fallback cookiesfrombrowser, копия профиля (%s → temp)",
+                            prof,
+                        )
+                    opts["cookiesfrombrowser"] = _parse_cookies_from_browser(spec_for_ytdlp)
+                    logger.debug("yt-dlp cookiesfrombrowser=%s", spec_for_ytdlp)
+                except ValueError as exc:
+                    logger.warning("%s", exc)
+        elif browser_spec:
             try:
-                spec_for_ytdlp = browser_spec
-                prof = _firefox_profile_dir_from_spec(browser_spec)
-                if (
-                    _instagram_url(url)
-                    and prof is not None
-                    and (tmp := _copy_firefox_cookies_db_to_temp_dir(prof, out_dir, stem))
-                    is not None
-                ):
-                    isolated_ff_profile = tmp
-                    spec_for_ytdlp = f"firefox:{tmp.resolve()}"
-                    logger.info(
-                        "Instagram: копия Firefox cookies для yt-dlp (%s → temp)",
-                        prof,
-                    )
-                opts["cookiesfrombrowser"] = _parse_cookies_from_browser(spec_for_ytdlp)
-                logger.debug("yt-dlp cookiesfrombrowser=%s", spec_for_ytdlp)
+                opts["cookiesfrombrowser"] = _parse_cookies_from_browser(browser_spec)
+                logger.debug("yt-dlp cookiesfrombrowser=%s", browser_spec)
             except ValueError as exc:
                 logger.warning("%s", exc)
         else:
-            cf = self._settings.ytdlp_cookiefile
-            if cf is not None:
-                if cf.is_file():
-                    opts["cookiefile"] = str(cf.resolve())
-                else:
-                    logger.warning("YTDLP_COOKIEFILE задан, но файл не найден: %s", cf)
+            if cf is not None and cf.is_file():
+                opts["cookiefile"] = str(cf.resolve())
+            elif cf is not None:
+                logger.warning("YTDLP_COOKIEFILE задан, но файл не найден: %s", cf)
 
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 ydl.download([url])
         finally:
-            if isolated_ff_profile is not None:
-                shutil.rmtree(isolated_ff_profile, ignore_errors=True)
+            for p in cleanup_paths:
+                if p.is_dir():
+                    shutil.rmtree(p, ignore_errors=True)
+                elif p.is_file():
+                    p.unlink(missing_ok=True)
 
         picked = _pick_merged_media(out_dir, stem)
         if picked is None:
