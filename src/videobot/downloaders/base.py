@@ -3,10 +3,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+import shutil
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from videobot.config.settings import Settings
 from videobot.downloaders.exceptions import DownloadFailed, SizeExceededError
@@ -28,6 +30,39 @@ def _truncate_for_user(text: str, max_len: int) -> str:
     if len(text) <= max_len:
         return text
     return text[: max_len - 1] + "…"
+
+
+def _instagram_url(url: str) -> bool:
+    host = urlparse(url.strip()).netloc.lower().split(":", 1)[0]
+    return host in ("instagram.com", "www.instagram.com", "m.instagram.com") or host.endswith(
+        ".instagram.com"
+    )
+
+
+def _firefox_profile_dir_from_spec(spec: str) -> Path | None:
+    spec = spec.strip()
+    if not spec.lower().startswith("firefox:"):
+        return None
+    rest = spec.split(":", 1)[1].strip()
+    if not rest.startswith("/"):
+        return None
+    return Path(rest)
+
+
+def _copy_firefox_cookies_db_to_temp_dir(
+    profile_dir: Path, dest_parent: Path, tag: str
+) -> Path | None:
+    """Копия cookies.sqlite (+ WAL/SHM) для yt-dlp, пока живой Firefox держит блокировку БД."""
+    src_db = profile_dir / "cookies.sqlite"
+    if not src_db.is_file():
+        return None
+    tmp = dest_parent / f"ff_cookies_{tag}"
+    tmp.mkdir(parents=True, exist_ok=True)
+    for name in ("cookies.sqlite", "cookies.sqlite-wal", "cookies.sqlite-shm"):
+        src = profile_dir / name
+        if src.is_file():
+            shutil.copy2(src, tmp / name)
+    return tmp
 
 
 def _parse_cookies_from_browser(spec: str) -> tuple[str, str | None, str | None, str | None]:
@@ -173,11 +208,26 @@ class BaseDownloader(ABC):
             "ignoreerrors": False,
         }
 
+        isolated_ff_profile: Path | None = None
         browser_spec = self._settings.ytdlp_cookies_from_browser
         if browser_spec:
             try:
-                opts["cookiesfrombrowser"] = _parse_cookies_from_browser(browser_spec)
-                logger.debug("yt-dlp cookiesfrombrowser=%s", browser_spec)
+                spec_for_ytdlp = browser_spec
+                prof = _firefox_profile_dir_from_spec(browser_spec)
+                if (
+                    _instagram_url(url)
+                    and prof is not None
+                    and (tmp := _copy_firefox_cookies_db_to_temp_dir(prof, out_dir, stem))
+                    is not None
+                ):
+                    isolated_ff_profile = tmp
+                    spec_for_ytdlp = f"firefox:{tmp.resolve()}"
+                    logger.info(
+                        "Instagram: копия Firefox cookies для yt-dlp (%s → temp)",
+                        prof,
+                    )
+                opts["cookiesfrombrowser"] = _parse_cookies_from_browser(spec_for_ytdlp)
+                logger.debug("yt-dlp cookiesfrombrowser=%s", spec_for_ytdlp)
             except ValueError as exc:
                 logger.warning("%s", exc)
         else:
@@ -188,8 +238,12 @@ class BaseDownloader(ABC):
                 else:
                     logger.warning("YTDLP_COOKIEFILE задан, но файл не найден: %s", cf)
 
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            ydl.download([url])
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.download([url])
+        finally:
+            if isolated_ff_profile is not None:
+                shutil.rmtree(isolated_ff_profile, ignore_errors=True)
 
         picked = _pick_merged_media(out_dir, stem)
         if picked is None:

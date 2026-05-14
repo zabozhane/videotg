@@ -65,7 +65,9 @@ def _explicit_browser_profile_dir(spec: str) -> Path | None:
 def _browser_cookie_db_at_profile(browser_head: str, profile_dir: Path) -> bool:
     name = browser_head.lower()
     if name == "firefox":
-        return (profile_dir / "cookies.sqlite").is_file()
+        # Явный путь из .env: достаточно существующего каталога профиля (sqlite может
+        # кратковременно отсутствовать при первом старте; не сбрасываем настройку зря).
+        return profile_dir.is_dir()
     if name in _BROWSER_CONFIG_DIRS:
         return any(
             p.is_file() and p.name == "Cookies" for p in profile_dir.rglob("Cookies")
