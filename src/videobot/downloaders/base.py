@@ -92,14 +92,20 @@ def _try_instagram_cookiefile_from_browser(
         logger.warning("Instagram: не удалось прочитать cookies браузера: %s", exc)
         return False
 
+    # Сначала файл (доп. куки), затем браузер — при совпадении имён/домена побеждает Firefox
+    # (иначе устаревший sessionid из YTDLP_COOKIEFILE затирал свежий после перелогина на VPS).
     if extra_cookiefile is not None and extra_cookiefile.is_file():
         try:
             file_jar = YoutubeDLCookieJar(str(extra_cookiefile.resolve()))
             file_jar.load(ignore_discard=True, ignore_expires=True)
+            merged = YoutubeDLCookieJar()
             for c in file_jar:
-                jar.set_cookie(c)
+                merged.set_cookie(c)
+            for c in jar:
+                merged.set_cookie(c)
+            jar = merged
             logger.info(
-                "Instagram: объединены cookies браузера и YTDLP_COOKIEFILE (%s)",
+                "Instagram: YTDLP_COOKIEFILE + браузер (%s), при конфликте приоритет у браузера",
                 extra_cookiefile,
             )
         except OSError as exc:
