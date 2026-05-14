@@ -52,7 +52,7 @@ docker compose up --build -d
 
 1. **Сервер:** Ubuntu 22.04+ (или аналог), установлены [Docker Engine](https://docs.docker.com/engine/install/) и Docker Compose plugin.
 2. Скопируйте проект: `git clone …` или `scp -r` каталога на VPS.
-3. На сервере: `cd insta_download && cp .env.example .env` — пропишите **`BOT_TOKEN`**, **`TELEGRAM_CHANNEL_ID`**. Для Instagram: **уберите `YTDLP_COOKIES_FROM_BROWSER`**, экспортируйте `cookies.txt` с ПК, положите в **`data/instagram_cookies.txt`**, в `.env` укажите **`YTDLP_COOKIEFILE=/run/instagram_cookies.txt`**, в `docker-compose.yml` раскомментируйте строку volume для `/run/instagram_cookies.txt`.
+3. На сервере: `cd insta_download && cp .env.example .env` — пропишите **`BOT_TOKEN`**, **`TELEGRAM_CHANNEL_ID`**. Для Instagram: либо **`YTDLP_COOKIEFILE`** и файл `data/instagram_cookies.txt` (volume в `docker-compose` раскомментируйте при необходимости), либо вход через Firefox на VPS (**раздел «Instagram и VPS»** и `YTDLP_COOKIES_FROM_BROWSER=firefox:/igfirefox/...`).
 4. Запуск: `docker compose up --build -d`. Логи: `docker compose logs -f bot` или `./logs/app.log`.
 5. **Файрвол:** при необходимости откройте только `PUBLIC_HEALTH_PORT` (если health смотрит наружу); для Telegram исходящий HTTPS достаточно по умолчанию.
 6. Обновление: `git pull && docker compose up --build -d`.
