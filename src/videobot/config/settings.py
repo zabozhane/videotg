@@ -11,7 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
 
-# Первый токен из YTDLP_COOKIES_FROM_BROWSER (как у yt-dlp): chrome, chrome:Profile, chrome+keyring, …
+# Первый токен из YTDLP_COOKIES_FROM_BROWSER (как у yt-dlp): chrome, chrome:Profile, …
 _BROWSER_HEAD = re.compile(r"^([^:+]+)")
 
 # Под ~/.config/… профили с SQLite Cookies (Chrome-семейство на Linux).
@@ -32,6 +32,9 @@ _BROWSER_WIN_USERDATA: dict[str, tuple[str, ...]] = {
     "edge": ("Microsoft/Edge/User Data",),
     "vivaldi": ("Vivaldi/User Data",),
 }
+
+# macOS: ~/Library/Application Support/… (те же браузеры, другой корень).
+_BROWSER_APP_SUPPORT_DIRS: dict[str, tuple[str, ...]] = {
     "chrome": ("Google/Chrome",),
     "chromium": ("Chromium",),
     "brave": ("BraveSoftware/Brave-Browser",),
@@ -47,6 +50,37 @@ def _ytdlp_browser_head(spec: str) -> str | None:
         return None
     m = _BROWSER_HEAD.match(spec)
     return m.group(1).strip().lower() if m else None
+
+
+def _explicit_browser_profile_dir(spec: str) -> Path | None:
+    """yt-dlp: `firefox:/abs/path/to/profile` или `chrome:/abs/path/to/profile`."""
+    if ":" not in spec:
+        return None
+    rest = spec.split(":", 1)[1].strip()
+    if not rest.startswith("/"):
+        return None
+    return Path(rest)
+
+
+def _browser_cookie_db_at_profile(browser_head: str, profile_dir: Path) -> bool:
+    name = browser_head.lower()
+    if name == "firefox":
+        return (profile_dir / "cookies.sqlite").is_file()
+    if name in _BROWSER_CONFIG_DIRS:
+        return any(
+            p.is_file() and p.name == "Cookies" for p in profile_dir.rglob("Cookies")
+        )
+    return True
+
+
+def _browser_cookie_database_likely_present_for_spec(spec: str) -> bool:
+    head = _ytdlp_browser_head(spec)
+    if not head:
+        return True
+    explicit = _explicit_browser_profile_dir(spec)
+    if explicit is not None:
+        return _browser_cookie_db_at_profile(head, explicit)
+    return _browser_cookie_database_likely_present(head)
 
 
 def _browser_cookie_database_likely_present(browser_head: str) -> bool:
@@ -81,7 +115,10 @@ def _browser_cookie_database_likely_present(browser_head: str) -> bool:
         if not local:
             return False
         root = Path(local)
-        for rel in _BROWSER_WIN_USERDATA.get(name, ()):
+        win_rels = _BROWSER_WIN_USERDATA.get(name)
+        if not win_rels:
+            return True
+        for rel in win_rels:
             base = root / Path(rel)
             if base.is_dir() and any(base.glob("**/Cookies")):
                 return True
@@ -172,7 +209,7 @@ class Settings(BaseSettings):
         head = _ytdlp_browser_head(spec)
         if head is None:
             return self
-        if _browser_cookie_database_likely_present(head):
+        if _browser_cookie_database_likely_present_for_spec(spec):
             return self
         logger.info(
             "YTDLP_COOKIES_FROM_BROWSER=%r: локальная БД cookies не найдена — "

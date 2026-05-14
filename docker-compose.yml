@@ -9,14 +9,14 @@ services:
       # Внутри контейнера фиксируем порт healthcheck (хост пробрасывается отдельно)
       HEALTH_HOST: "0.0.0.0"
       HEALTH_PORT: "8080"
-      # В контейнере нет Chrome — сбрасываем cookies-from-browser из локального .env
-      YTDLP_COOKIES_FROM_BROWSER: ""
     ports:
       - "${PUBLIC_HEALTH_PORT:-8080}:8080"
     volumes:
       - ./logs:/app/logs
       - bot_temp:/app/temp
-      # Instagram на VPS: положите cookies на сервер в ./data/instagram_cookies.txt и раскомментируйте:
+      # Профиль Firefox из сервиса ig-firefox (путь внутри контейнера — /igfirefox, см. README)
+      - ./data/firefox-ig:/igfirefox:ro
+      # Альтернатива: Netscape cookies.txt
       # - ./data/instagram_cookies.txt:/run/instagram_cookies.txt:ro
     healthcheck:
       test:
@@ -28,6 +28,24 @@ services:
       timeout: 15s
       retries: 3
       start_period: 120s
+
+  # Firefox с веб-интерфейсом: один раз залогиниться в Instagram на VPS.
+  # Запуск: docker compose --profile ig-login up -d
+  # Доступ с вашего ПК: ssh -L 3100:127.0.0.1:3100 user@vps → http://localhost:3100
+  ig-firefox:
+    profiles:
+      - ig-login
+    image: lscr.io/linuxserver/firefox:latest
+    container_name: videotg-ig-firefox
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: "${TZ:-Etc/UTC}"
+    volumes:
+      - ./data/firefox-ig:/config
+    ports:
+      - "127.0.0.1:${IG_LOGIN_BROWSER_PORT:-3100}:3000"
+    shm_size: "1gb"
 
 volumes:
   bot_temp:

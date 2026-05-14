@@ -46,7 +46,7 @@ docker compose up --build -d
 
 - **Healthcheck снаружи:** порт хоста задаётся `PUBLIC_HEALTH_PORT` (по умолчанию 8080), внутри контейнера сервис слушает **8080** (`HEALTH_PORT` переопределяется в `docker-compose.yml`). Проверка: `curl -s http://127.0.0.1:${PUBLIC_HEALTH_PORT:-8080}/health`.
 - **Логи и temp:** `./logs` на хосте и том `bot_temp` для временных файлов.
-- **Instagram в контейнере:** Chrome недоступен — задайте `YTDLP_COOKIEFILE=/run/instagram_cookies.txt`, положите на сервер файл `data/instagram_cookies.txt` и раскомментируйте volume в `docker-compose.yml`.
+- **Instagram в контейнере:** задайте `YTDLP_COOKIEFILE=/run/instagram_cookies.txt` и volume к `data/instagram_cookies.txt`, либо войдите через опциональный Firefox (`ig-login`, см. раздел **Instagram и VPS**).
 
 ## Деплой на VPS (кратко)
 
@@ -62,7 +62,23 @@ docker compose up --build -d
 ## Instagram и VPS
 Ссылка вроде [этого Reel](https://www.instagram.com/reel/DYF4vdJRn_A/) в браузере без логина часто показывает только страницу входа; с сервера yt-dlp видит то же самое и пишет про ограничение аудитории.
 
-**Что реально помогает:**
+### Вход в Instagram на VPS (Firefox в браузере)
+Чтобы один раз залогиниться на сервере и дать боту доступ к cookies профиля:
+
+1. На VPS в каталоге проекта: `docker compose --profile ig-login up -d ig-firefox` (образ подтянется при первом запуске).
+2. **Не открывайте** веб-интерфейс в интернет: в `docker-compose.yml` порт привязан к `127.0.0.1` на сервере. С вашего компьютера:  
+   `ssh -L 3100:127.0.0.1:3100 user@ваш-vps`  
+   затем в локальном браузере откройте `http://localhost:3100` — появится Firefox на VPS.
+3. В этом Firefox зайдите на [instagram.com](https://www.instagram.com) и войдите в аккаунт (2FA — как обычно в браузере).
+4. На VPS выполните `sh scripts/ig_firefox_profile_hint.sh` — скрипт подскажет строку для `.env`.
+5. В **`.env` на VPS** добавьте (или поправьте) строку вида  
+   `YTDLP_COOKIES_FROM_BROWSER=firefox:/igfirefox/.mozilla/firefox/…`  
+   затем `docker compose up -d` (бот уже монтирует `./data/firefox-ig` в `/igfirefox` только для чтения).
+6. Сервис браузера можно остановить, когда вход не нужен: `docker compose --profile ig-login stop ig-firefox` — профиль остаётся в `./data/firefox-ig`.
+
+Учитывайте правила Instagram и риски хранения сессии на сервере; не пробрасывайте порт Firefox на `0.0.0.0` без VPN и сильной необходимости.
+
+**Что ещё помогает:**
 1. **Локально на Mac:** `YTDLP_COOKIES_FROM_BROWSER=chrome` — cookies из профиля Chrome (см. выше).
 2. **`YTDLP_COOKIEFILE`** на VPS — файл **Netscape** `cookies.txt` ([инструкция yt-dlp](https://github.com/yt-dlp/yt-dlp#exporting-youtube-cookies)), права `600`, путь в `.env`.
 3. **Резидентский прокси** — если Instagram режет датацентровые IP даже с cookies (реже, но бывает). Это уже настройка прокси для yt-dlp/системы, не вшита в бот по умолчанию.
@@ -94,4 +110,4 @@ aiogram 3.x, aiohttp, pydantic-settings, yt-dlp, Docker.
 Исходный код пакета: `src/videobot/` (модули `config`, `logging_setup`, `validators`, `downloaders`, `telegram_bot`, `publisher`, `cleanup_manager`, `app_lifecycle`). Подробнее: `ARCHITECTURE.md`.
 
 ## Non-goals
-TikTok/Twitter, БД, веб-интерфейс, хранение видео после публикации — см. исходный README в истории спецификации.
+TikTok/Twitter, БД, веб-интерфейс админки бота, хранение видео после публикации — см. исходный README в истории спецификации.
