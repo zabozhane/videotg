@@ -71,9 +71,10 @@ def _try_instagram_cookiefile_from_browser(
     stem: str,
     opts: dict[str, Any],
     cleanup_paths: list[Path],
+    extra_cookiefile: Path | None,
 ) -> bool:
     """Instagram в yt-dlp проверяет sessionid; Netscape cookiefile стабильнее cookiesfrombrowser."""
-    from yt_dlp.cookies import YDLLogger, extract_cookies_from_browser
+    from yt_dlp.cookies import YDLLogger, YoutubeDLCookieJar, extract_cookies_from_browser
 
     spec = browser_spec.strip()
     try:
@@ -90,6 +91,21 @@ def _try_instagram_cookiefile_from_browser(
     except Exception as exc:
         logger.warning("Instagram: не удалось прочитать cookies браузера: %s", exc)
         return False
+
+    if extra_cookiefile is not None and extra_cookiefile.is_file():
+        try:
+            file_jar = YoutubeDLCookieJar(str(extra_cookiefile.resolve()))
+            file_jar.load(ignore_discard=True, ignore_expires=True)
+            for c in file_jar:
+                jar.set_cookie(c)
+            logger.info(
+                "Instagram: объединены cookies браузера и YTDLP_COOKIEFILE (%s)",
+                extra_cookiefile,
+            )
+        except OSError as exc:
+            logger.warning("Instagram: не удалось прочитать YTDLP_COOKIEFILE: %s", exc)
+        except Exception as exc:
+            logger.warning("Instagram: разбор YTDLP_COOKIEFILE: %s", exc)
 
     out = out_dir / f"{stem}_ig_cookies.txt"
     try:
@@ -269,7 +285,7 @@ class BaseDownloader(ABC):
 
         if browser_spec and _instagram_url(url):
             if not _try_instagram_cookiefile_from_browser(
-                browser_spec, out_dir, stem, opts, cleanup_paths
+                browser_spec, out_dir, stem, opts, cleanup_paths, cf
             ):
                 if cf is not None and cf.is_file():
                     opts["cookiefile"] = str(cf.resolve())
