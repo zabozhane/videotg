@@ -42,6 +42,7 @@ services:
       PGID: "1000"
       TZ: "${TZ:-Etc/UTC}"
     volumes:
+      # На хосте: chown 1000:1000 (см. PUID), иначе профиль не пишется в bind-mount.
       - ./data/firefox-ig:/config
     ports:
       - "127.0.0.1:${IG_LOGIN_BROWSER_PORT:-3100}:3000"

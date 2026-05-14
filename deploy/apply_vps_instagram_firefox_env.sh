@@ -35,6 +35,8 @@ SSH_EXTRA=(-p "$VPS_PORT" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=
 remote_script=$(cat <<EOF
 set -euo pipefail
 cd "\$HOME/${VPS_REMOTE_DIR}"
+mkdir -p data/firefox-ig
+chown -R 1000:1000 data/firefox-ig || true
 if [[ ! -f .env ]]; then echo "Нет .env в \$(pwd)"; exit 1; fi
 if [[ ! -d data/firefox-ig ]]; then echo "Нет data/firefox-ig — сначала ig-firefox и логин в Instagram"; exit 1; fi
 cookie=\$(find data/firefox-ig -name cookies.sqlite 2>/dev/null | head -1 || true)

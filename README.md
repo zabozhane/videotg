@@ -70,7 +70,8 @@ docker compose up --build -d
 2. **Не открывайте** веб-интерфейс в интернет: в `docker-compose.yml` порт привязан к `127.0.0.1` на сервере. С вашего компьютера:  
    `ssh -L 3100:127.0.0.1:3100 user@ваш-vps`  
    затем в локальном браузере откройте `http://localhost:3100` — появится Firefox на VPS.
-3. В этом Firefox зайдите на [instagram.com](https://www.instagram.com) и войдите в аккаунт (2FA — как обычно в браузере).
+3. В этом Firefox зайдите на [instagram.com](https://www.instagram.com) и войдите в аккаунт (2FA — как обычно в браузере).  
+   Если после деплоя профиль «не сохраняется», на VPS один раз выполните: `sudo chown -R 1000:1000 data/firefox-ig` и перезапустите `ig-firefox` (`docker compose --profile ig-login restart ig-firefox`), затем снова войдите в Instagram.
 4. На **Mac** (из корня репозитория, с рабочим SSH в `.env`):  
    `bash deploy/apply_vps_instagram_firefox_env.sh` — на VPS в `.env` запишется `YTDLP_COOKIES_FROM_BROWSER=firefox:/igfirefox/...` и перезапустится контейнер `bot`.  
    Либо вручную на VPS: `sh scripts/ig_firefox_profile_hint.sh` и вставьте строку в `.env`, затем `docker compose up -d bot`.
